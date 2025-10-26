@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Регистрация нового библиотекаря</title>
+</head>
+<body>
+<form th:method="POST" th:action="@{/registration}" th:object="${librarian}">
+    <label for="personFio">Введите ФИО: </label>
+    <input type="text" th:field="*{personFio}" id="personFio"/>
+    <div style="color:red" th:if="${#fields.hasErrors('personFio')}" th:errors="*{personFio}"></div>
+    <br/>
+
+    <label for="personYear">Введите год рождения: </label>
+    <input type="number" th:field="*{personYear}" id="personYear"/>
+    <div style="color:red" th:if="${#fields.hasErrors('personYear')}" th:errors="*{personYear}"></div>
+    <br/>
+
+    <label for="username">Введите логин: </label> <!-- ИСПРАВЛЕНО: было "год рождения" -->
+    <input type="text" th:field="*{username}" id="username"/>
+    <div style="color:red" th:if="${#fields.hasErrors('username')}" th:errors="*{username}"></div>
+    <br/>
+
+    <label for="password">Введите пароль: </label> <!-- ИСПРАВЛЕНО: было "год рождения" -->
+    <input type="password" th:field="*{password}" id="password"/>
+    <div style="color:red" th:if="${#fields.hasErrors('password')}" th:errors="*{password}"></div>
+    <br/>
+
+    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+    <button type="submit">Добавить библиотекаря</button>
+</form>
+</body>
+</html>
