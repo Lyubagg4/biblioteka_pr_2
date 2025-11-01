@@ -3,6 +3,7 @@ package ru.zyryanova.biblioteka_boot.Model;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
+import org.hibernate.annotations.Cascade;
 
 @Entity
 @Table(name = "book")
@@ -28,6 +29,16 @@ public class Book {
     @JoinColumn(name = "person_id", referencedColumnName = "personId")
     private Person owner;
 
+    @Version
+    private Integer version;
+
+    public Integer getVersion() {
+        return version;
+    }
+
+    public void setVersion(Integer version) {
+        this.version = version;
+    }
 
     public int getBookId() {
         return bookId;

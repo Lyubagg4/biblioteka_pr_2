@@ -20,7 +20,7 @@
     </div>
     <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
     <button type="submit">Войти</button>
-    <p>Нет аккаунта? <button type="submit" th:href="@{/registration}">Зарегистрироваться</button></p>
+    <a th:href="@{/registration}">Зарегистрироваться</a>
 </form>
 </body>
 </html>

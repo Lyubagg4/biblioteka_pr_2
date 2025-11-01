@@ -23,8 +23,13 @@ public class SecurityConfig{
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .authorizeHttpRequests(authz -> authz
-                        .requestMatchers( "/registration","/login", "/login_send").permitAll()
-                        .anyRequest().authenticated())
+                        // Сначала самые специфичные правила
+                        .requestMatchers("/registration").permitAll()
+                        .requestMatchers("/login").permitAll()
+                        .requestMatchers("/login_send").permitAll()
+                        // Потом общее правило
+                        .anyRequest().authenticated()
+                )
                 .formLogin(form -> form
                         .loginPage("/login")
                         .loginProcessingUrl("/login_send")

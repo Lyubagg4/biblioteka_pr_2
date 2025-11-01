@@ -9,9 +9,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import ru.zyryanova.biblioteka_boot.Exception.ResourceNotFoundException;
 import ru.zyryanova.biblioteka_boot.Model.Book;
 import ru.zyryanova.biblioteka_boot.Model.Person;
+import ru.zyryanova.biblioteka_boot.Repository.BookRepo;
 import ru.zyryanova.biblioteka_boot.Repository.PersonRepo;
 import ru.zyryanova.biblioteka_boot.Service.PersonService;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -22,6 +24,8 @@ public class PersonServiceTest {
 
     @Mock
     private PersonRepo personRepo;
+    @Mock
+    private BookRepo bookRepo;
 
     @InjectMocks
     private PersonService personService;
@@ -75,14 +79,12 @@ public class PersonServiceTest {
     @Test
     public void personBooksShouldBeReturned() {
         Person person = new Person();
+        person.setPersonId(2);
         Book book = new Book();
         person.setBooks(List.of(book));
-
-        when(personRepo.findById(2)).thenReturn(Optional.of(person));
-
+        when(bookRepo.findByOwnerPersonId(2)).thenReturn(Collections.singletonList(book));
         List<Book> books = personService.booksOfPerson(2);
-
         Assertions.assertEquals(1, books.size());
-        verify(personRepo).findById(2);
+        verify(bookRepo).findByOwnerPersonId(2);
     }
 }

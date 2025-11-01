@@ -33,6 +33,7 @@ public class BookServiceTest {
 
     private Book freeBook;
     private Book occupiedBook;
+    private Book unOccupiedBook;
     private Person person;
 
     @BeforeEach
@@ -49,6 +50,10 @@ public class BookServiceTest {
         occupiedBook.setBookId(2);
         occupiedBook.setBookName("Occupied Book");
         occupiedBook.setOwner(person);
+
+        unOccupiedBook = new Book();
+        occupiedBook.setBookId(3);
+        occupiedBook.setBookName("unOccupied Book");
     }
     @Test
     public void bookShouldBeExist(){
@@ -66,13 +71,11 @@ public class BookServiceTest {
     }
     @Test
     public void personShouldBeAddToFreeBookSuccess(){
-        Mockito.when(bookRepo.findById(1)).thenReturn(Optional.of(freeBook));
-        Mockito.when(personRepo.findById(8)).thenReturn(Optional.of(person));
+        Mockito.when(bookRepo.assignBookToPerson(1,8)).thenReturn(1);
         bookService.addPerson(1,8);
-        Assertions.assertEquals(person, freeBook.getOwner());
-        Mockito.verify(bookRepo).findById(1);
-        Mockito.verify(personRepo).findById(8);
+        Mockito.verify(bookRepo).assignBookToPerson(1, 8);
     }
+
     @Test
     public void personShouldNotBeAddToOccupiedBook(){
         Mockito.when(bookRepo.findById(2)).thenReturn(Optional.of(occupiedBook));
@@ -81,11 +84,9 @@ public class BookServiceTest {
     }
     @Test
     public void freeBookWithOwner(){
-        Mockito.when(bookRepo.findById(2)).thenReturn(Optional.of(occupiedBook));
+        Mockito.when(bookRepo.freeBook(2)).thenReturn(1);
         bookService.free(2);
-        Assertions.assertEquals(null,occupiedBook.getOwner());
-        Mockito.verify(bookRepo).findById(2);
-        verify(bookRepo).save(occupiedBook);
+        Mockito.verify(bookRepo).freeBook(2);
     }
     @Test
     public void freeBookWithoutOwner(){

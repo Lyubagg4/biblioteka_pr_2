@@ -2,9 +2,11 @@ package ru.zyryanova.biblioteka_boot.Exception;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import ru.zyryanova.biblioteka_boot.Model.Book;
 
 @ControllerAdvice
 public class GlobalExceptionHandler {
@@ -21,6 +23,18 @@ public class GlobalExceptionHandler {
         model.addAttribute("message", ex.getMessage());
         logger.warn("Illegal state", ex.getMessage());
         return "errors/400";
+    }
+    @ExceptionHandler(PersonOptimisticLockException.class)
+    public String handlePersonOptimisticLockException(PersonOptimisticLockException ex, Model model){
+        model.addAttribute("message", ex.getMessage());
+        logger.warn("Person optimistic lock conflict", ex.getMessage());
+        return "errors/409";
+    }
+    @ExceptionHandler(BookOptimisticLockException.class)
+    public String handleOptimisticLockException(BookOptimisticLockException ex, Model model) {
+        model.addAttribute("message", ex.getMessage());
+        logger.warn("Book optimistic lock conflict", ex.getMessage());
+        return "errors/409";
     }
     @ExceptionHandler(Exception.class)
     public String handleException(Exception ex, Model model){

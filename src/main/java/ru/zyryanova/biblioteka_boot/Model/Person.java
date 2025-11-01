@@ -23,6 +23,17 @@ public class Person {
     @OneToMany(mappedBy = "owner")  // ← "owner" - это поле в классе Book
     private List<Book> books;
 
+    @Version
+    private Integer version;
+
+    public Integer getVersion() {
+        return version;
+    }
+
+    public void setVersion(Integer version) {
+        this.version = version;
+    }
+
     public int getPersonId() {
         return personId;
     }
