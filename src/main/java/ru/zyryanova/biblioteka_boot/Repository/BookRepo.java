@@ -12,12 +12,15 @@ import java.util.List;
 @Repository
 public interface BookRepo extends JpaRepository<Book, Integer> {
     List<Book> findByBookNameStartingWith(String prefix);
+
     @Modifying
     @Query("UPDATE Book b SET b.owner.id = :personId WHERE b.bookId = :bookId AND b.owner IS NULL")
     int assignBookToPerson(@Param("bookId") int bookId, @Param("personId") int personId);
+
     @Modifying
     @Query("UPDATE Book b SET b.owner = NULL WHERE b.bookId = :bookId AND b.owner IS NOT NULL")
     int freeBook(@Param("bookId") int bookId);
+
     List<Book> findByOwnerPersonId(int id);
 
 }

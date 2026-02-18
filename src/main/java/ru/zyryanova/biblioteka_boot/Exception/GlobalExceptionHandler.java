@@ -2,11 +2,9 @@ package ru.zyryanova.biblioteka_boot.Exception;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import ru.zyryanova.biblioteka_boot.Model.Book;
 
 @ControllerAdvice
 public class GlobalExceptionHandler {

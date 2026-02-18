@@ -31,16 +31,18 @@ public class PersonService {
         return findPersonOrThrow(id);
     }
     public void update(int id, Person person){
-        findPersonOrThrow(id);
-        person.setPersonId(id);
+        Person existing = findPersonOrThrow(id);
+        existing.setPersonId(id);
+        existing.setPersonFio(person.getPersonFio());
+        existing.setPersonYear(person.getPersonYear());
+        existing.setVersion(person.getVersion());
         try{
-            personRepository.save(person);
+            personRepository.save(existing);
         }catch (OptimisticLockingFailureException ex){
             throw new PersonOptimisticLockException("Данные человека были изменены другим пользователем. " +
                     "Пожалуйста, обновите страницу и попробуйте снова.",
                     ex);
         }
-
     }
     public void delete(int id){
         findPersonOrThrow(id);
@@ -53,4 +55,3 @@ public class PersonService {
         return personRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Читатель с id " + id + " не найден"));
     }
 }
-

@@ -1,0 +1,1422 @@
+===== ./src/test/java/ru/zyryanova/biblioteka_boot/ServiceTest/RegistrationServiceTest.java =====
+package ru.zyryanova.biblioteka_boot.ServiceTest;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import ru.zyryanova.biblioteka_boot.Model.Librarian;
+import ru.zyryanova.biblioteka_boot.Repository.LibrarianRegistrationRepo;
+import ru.zyryanova.biblioteka_boot.Service.RegistrationService;
+
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+public class RegistrationServiceTest {
+
+    @Mock
+    private LibrarianRegistrationRepo librarianRepo;
+
+    @Mock
+    private PasswordEncoder passwordEncoder;
+
+    @InjectMocks
+    private RegistrationService registrationService;
+
+    @Test
+    public void passwordShouldBeEncodedBeforeSaving() {
+        Librarian librarian = new Librarian();
+        librarian.setId(1);
+        librarian.setUsername("admin");
+        librarian.setPassword("123");
+
+        when(passwordEncoder.encode("123")).thenReturn("encoded_pass");
+
+        registrationService.register(librarian);
+
+        Assertions.assertEquals("encoded_pass", librarian.getPassword());
+        verify(passwordEncoder).encode("123");
+        verify(librarianRepo).save(librarian);
+    }
+
+    @Test
+    public void registerLibrarianSuccess() {
+        Librarian librarian = new Librarian();
+        librarian.setUsername("test");
+
+        registrationService.register(librarian);
+
+        verify(librarianRepo).save(librarian);
+    }
+}
+
+===== ./src/test/java/ru/zyryanova/biblioteka_boot/ServiceTest/BookServiceTest.java =====
+package ru.zyryanova.biblioteka_boot.ServiceTest;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+
+import org.mockito.Mockito;
+import org.mockito.junit.jupiter.MockitoExtension;
+import ru.zyryanova.biblioteka_boot.Exception.ResourceNotFoundException;
+import ru.zyryanova.biblioteka_boot.Model.Book;
+import ru.zyryanova.biblioteka_boot.Model.Person;
+import ru.zyryanova.biblioteka_boot.Repository.BookRepo;
+import ru.zyryanova.biblioteka_boot.Repository.PersonRepo;
+import ru.zyryanova.biblioteka_boot.Service.BookService;
+
+import java.util.List;
+import java.util.Optional;
+
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+public class BookServiceTest {
+    @Mock
+    private BookRepo bookRepo;
+    @Mock
+    private PersonRepo personRepo;
+    @InjectMocks
+    private BookService bookService;
+
+    private Book freeBook;
+    private Book occupiedBook;
+    private Book unOccupiedBook;
+    private Person person;
+
+    @BeforeEach
+    public void setUp(){
+        freeBook = new Book();
+        freeBook.setBookId(1);
+        freeBook.setBookName("Free Book");
+
+        person = new Person();
+        person.setPersonId(8);
+        person.setPersonFio("Ivan");
+
+        occupiedBook = new Book();
+        occupiedBook.setBookId(2);
+        occupiedBook.setBookName("Occupied Book");
+        occupiedBook.setOwner(person);
+
+        unOccupiedBook = new Book();
+        occupiedBook.setBookId(3);
+        occupiedBook.setBookName("unOccupied Book");
+    }
+    @Test
+    public void bookShouldBeExist(){
+        Mockito.when(bookRepo.findById(1)).thenReturn(Optional.of(freeBook));
+        Book result = bookService.show(1);
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(1, result.getBookId());
+        Mockito.verify(bookRepo).findById(1);
+    }
+    @Test
+    public void bookShouldNotExist(){
+        Mockito.when(bookRepo.findById(2)).thenReturn(Optional.empty());
+        Assertions.assertThrows(ResourceNotFoundException.class, () -> bookService.show(2));
+        Mockito.verify(bookRepo).findById(2);
+    }
+    @Test
+    public void personShouldBeAddToFreeBookSuccess(){
+        Mockito.when(bookRepo.assignBookToPerson(1,8)).thenReturn(1);
+        bookService.addPerson(1,8);
+        Mockito.verify(bookRepo).assignBookToPerson(1, 8);
+    }
+
+    @Test
+    public void personShouldNotBeAddToOccupiedBook(){
+        Mockito.when(bookRepo.findById(2)).thenReturn(Optional.of(occupiedBook));
+        Assertions.assertThrows(IllegalStateException.class, () -> bookService.addPerson(2,8));
+        Mockito.verify(bookRepo).findById(2);
+    }
+    @Test
+    public void freeBookWithOwner(){
+        Mockito.when(bookRepo.freeBook(2)).thenReturn(1);
+        bookService.free(2);
+        Mockito.verify(bookRepo).freeBook(2);
+    }
+    @Test
+    public void freeBookWithoutOwner(){
+        Mockito.when(bookRepo.findById(1)).thenReturn(Optional.of(freeBook));
+        Assertions.assertThrows(IllegalStateException.class, () -> bookService.free(1));
+        Mockito.verify(bookRepo).findById(1);
+    }
+    @Test
+    public void deleteSuccess(){
+        Mockito.when(bookRepo.findById(1)).thenReturn(Optional.of(freeBook));
+        bookService.delete(1);
+        verify(bookRepo).delete(freeBook);
+        Mockito.verify(bookRepo).findById(1);
+    }
+    @Test
+    public void deleteFail(){
+        Mockito.when(bookRepo.findById(1)).thenReturn(Optional.empty());
+        Assertions.assertThrows(ResourceNotFoundException.class, () ->  bookService.delete(1));
+        Mockito.verify(bookRepo).findById(1);
+
+    }
+    @Test
+    public void updateSuccess(){
+        Mockito.when(bookRepo.findById(1)).thenReturn(Optional.of(freeBook));
+        freeBook.setBookName("Hello world");
+        bookService.update(1, freeBook);
+        Assertions.assertEquals("Hello world",freeBook.getBookName());
+        Mockito.verify(bookRepo).findById(1);
+    }
+    @Test
+    public void updateFail(){
+        freeBook.setBookName("Hello world");
+        Assertions.assertThrows(ResourceNotFoundException.class, () -> bookService.update(1, freeBook));
+        Mockito.verify(bookRepo).findById(1);
+
+    }
+    @Test
+    public void nameOfTheBookStartsWithTextSuccess() {
+        String prefix = "Free";
+        List<Book> expectedBooks = List.of(freeBook);
+        when(bookRepo.findByBookNameStartingWith(prefix))
+                .thenReturn(expectedBooks);
+        List<Book> result = bookService.find(prefix);
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(1, result.size());
+        Assertions.assertEquals(expectedBooks, result);
+        verify(bookRepo).findByBookNameStartingWith(prefix);
+    }
+    @Test
+    public void nameOfTheBookStartsWithTextFail() {
+        String prefix = "Unknown";
+        when(bookRepo.findByBookNameStartingWith(prefix))
+                .thenReturn(List.of());
+        List<Book> result = bookService.find(prefix);
+        Assertions.assertTrue(result.isEmpty());
+        verify(bookRepo).findByBookNameStartingWith(prefix);
+    }
+}
+
+===== ./src/test/java/ru/zyryanova/biblioteka_boot/ServiceTest/PersonServiceTest.java =====
+package ru.zyryanova.biblioteka_boot.ServiceTest;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import ru.zyryanova.biblioteka_boot.Exception.ResourceNotFoundException;
+import ru.zyryanova.biblioteka_boot.Model.Book;
+import ru.zyryanova.biblioteka_boot.Model.Person;
+import ru.zyryanova.biblioteka_boot.Repository.BookRepo;
+import ru.zyryanova.biblioteka_boot.Repository.PersonRepo;
+import ru.zyryanova.biblioteka_boot.Service.PersonService;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+public class PersonServiceTest {
+
+    @Mock
+    private PersonRepo personRepo;
+    @Mock
+    private BookRepo bookRepo;
+
+    @InjectMocks
+    private PersonService personService;
+
+    @Test
+    public void personShouldBeFound() {
+        Person person = new Person();
+        person.setPersonId(1);
+
+        when(personRepo.findById(1)).thenReturn(Optional.of(person));
+
+        Person result = personService.show(1);
+
+        Assertions.assertEquals(1, result.getPersonId());
+        verify(personRepo).findById(1);
+    }
+
+    @Test
+    public void personShouldNotBeFound() {
+        when(personRepo.findById(5)).thenReturn(Optional.empty());
+
+        Assertions.assertThrows(ResourceNotFoundException.class,
+                () -> personService.show(5));
+
+        verify(personRepo).findById(5);
+    }
+
+    @Test
+    public void deletePersonSuccess() {
+        Person person = new Person();
+        person.setPersonId(1);
+
+        when(personRepo.findById(1)).thenReturn(Optional.of(person));
+
+        personService.delete(1);
+
+        verify(personRepo).deleteById(1);
+    }
+
+    @Test
+    public void deletePersonFail() {
+        when(personRepo.findById(1)).thenReturn(Optional.empty());
+
+        Assertions.assertThrows(ResourceNotFoundException.class,
+                () -> personService.delete(1));
+
+        verify(personRepo).findById(1);
+        verify(personRepo, never()).deleteById(anyInt());
+    }
+
+    @Test
+    public void personBooksShouldBeReturned() {
+        Person person = new Person();
+        person.setPersonId(2);
+        Book book = new Book();
+        person.setBooks(List.of(book));
+        when(bookRepo.findByOwnerPersonId(2)).thenReturn(Collections.singletonList(book));
+        List<Book> books = personService.booksOfPerson(2);
+        Assertions.assertEquals(1, books.size());
+        verify(bookRepo).findByOwnerPersonId(2);
+    }
+}
+
+===== ./src/test/java/ru/zyryanova/biblioteka_boot/ControllerTest/BooksControllerTest.java =====
+package ru.zyryanova.biblioteka_boot.ControllerTest;
+
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+import ru.zyryanova.biblioteka_boot.Controller.BooksController;
+import ru.zyryanova.biblioteka_boot.Model.Book;
+import ru.zyryanova.biblioteka_boot.Model.Person;
+import ru.zyryanova.biblioteka_boot.Service.BookService;
+import ru.zyryanova.biblioteka_boot.Service.PersonService;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+
+@WebMvcTest(BooksController.class)
+@AutoConfigureMockMvc
+public class BooksControllerTest {
+    @Autowired
+    private MockMvc mockMvc;
+
+    @MockitoBean
+    private PersonService personService;
+
+    @MockitoBean
+    private BookService bookService;
+
+    @Test
+    @WithMockUser
+    void booksPageLoads() throws Exception {
+        mockMvc.perform(get("/books"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("books/list"))
+                .andExpect(model().attributeExists("books"));
+    }
+    @Test
+    @WithMockUser
+    void showBookPage() throws Exception {
+        Mockito.when(bookService.show(1)).thenReturn(new Book());
+        Mockito.when(bookService.personOfBook(1)).thenReturn(new Person());
+        Mockito.when(personService.people()).thenReturn(java.util.Collections.emptyList());
+        mockMvc.perform(get("/books/1"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("books/show"))
+                .andExpect(model().attributeExists("book", "person", "people"));
+    }
+    @Test
+    @WithMockUser
+    void newBookPageLoads() throws Exception {
+        mockMvc.perform(get("/books/new"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("books/new"))
+                .andExpect(model().attributeExists("book"));
+    }
+    @Test
+    @WithMockUser
+    void saveBookSuccess() throws Exception {
+        mockMvc.perform(post("/books").with(csrf())
+                        .param("bookName", "Test Book")
+                        .param("bookAuthor", "Some Author")
+                        .param("bookYear", "2022"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/books"));
+    }
+
+}
+
+===== ./src/test/java/ru/zyryanova/biblioteka_boot/ControllerTest/AuthControllerTest.java =====
+package ru.zyryanova.biblioteka_boot.ControllerTest;
+
+
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+import ru.zyryanova.biblioteka_boot.Controller.AuthController;
+import ru.zyryanova.biblioteka_boot.Security.SecurityConfig;
+import ru.zyryanova.biblioteka_boot.Service.LibrarianDetailsService;
+import ru.zyryanova.biblioteka_boot.Service.RegistrationService;
+
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+
+@WebMvcTest(AuthController.class)
+@Import(SecurityConfig.class)
+@AutoConfigureMockMvc
+public class AuthControllerTest {
+    @Autowired
+    private MockMvc mockMvc;
+    @MockitoBean
+    private RegistrationService registrationService;
+    @MockitoBean
+    private LibrarianDetailsService librarianDetailsService;
+
+    @Test
+    @WithMockUser
+    void registrationPageLoad() throws Exception {
+        mockMvc.perform(get("/registration"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("registration"));
+    }
+
+
+    @Test
+    @WithMockUser
+    void loginPageLoads() throws Exception {
+        mockMvc.perform(get("/login"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("login"));
+    }
+    @Test
+    @WithMockUser
+    void postRegistration() throws Exception{
+        mockMvc.perform(post("/registration").with(csrf())
+                .param("personFio","Ivanov Ivan Ivanovich")
+                .param("personYear", "2003")
+                .param("username", "Ivan2006")
+                .param("password", "IvanDurak"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/books"));
+    }
+}
+
+===== ./src/test/java/ru/zyryanova/biblioteka_boot/ControllerTest/PeopleControllerTest.java =====
+package ru.zyryanova.biblioteka_boot.ControllerTest;
+
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+import ru.zyryanova.biblioteka_boot.Controller.PeopleController;
+import ru.zyryanova.biblioteka_boot.Model.Person;
+import ru.zyryanova.biblioteka_boot.Service.BookService;
+import ru.zyryanova.biblioteka_boot.Service.PersonService;
+
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+@WebMvcTest(PeopleController.class)
+@AutoConfigureMockMvc
+public class PeopleControllerTest {
+    @Autowired
+    private MockMvc mockMvc;
+    @MockitoBean
+    private PersonService personService;
+
+    @MockitoBean
+    private BookService bookService;
+
+    @Test
+    @WithMockUser
+    void peoplePageLoads() throws Exception {
+        mockMvc.perform(get("/people"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("people/list"))
+                .andExpect(model().attributeExists("person"));
+    }
+    @Test
+    @WithMockUser
+    void showPersonPage() throws Exception {
+        Mockito.when(personService.show(1)).thenReturn(new Person());
+        Mockito.when(personService.booksOfPerson(1)).thenReturn(java.util.Collections.emptyList());
+
+        mockMvc.perform(get("/people/1"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("people/show"))
+                .andExpect(model().attributeExists("person", "books"));
+    }
+    @Test
+    @WithMockUser
+    void newPersonPageLoads() throws Exception {
+        mockMvc.perform(get("/people/new"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("people/new"))
+                .andExpect(model().attributeExists("person"));
+    }
+    @Test
+    @WithMockUser
+    void createPersonSuccess() throws Exception {
+        mockMvc.perform(post("/people").with(csrf())
+                        .param("personFio", "Person")
+                        .param("personYear", "1990"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/people"));
+    }
+
+}
+
+===== ./src/test/java/ru/zyryanova/biblioteka_boot/BibliotekaBootApplicationTests.java =====
+package ru.zyryanova.biblioteka_boot;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+
+@SpringBootTest
+class BibliotekaBootApplicationTests {
+
+	@Test
+	void contextLoads() {
+	}
+
+}
+
+===== ./src/main/java/ru/zyryanova/biblioteka_boot/Repository/PersonRepo.java =====
+package ru.zyryanova.biblioteka_boot.Repository;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+import ru.zyryanova.biblioteka_boot.Model.Person;
+
+@Repository
+public interface PersonRepo extends JpaRepository<Person, Integer> {
+
+}
+
+===== ./src/main/java/ru/zyryanova/biblioteka_boot/Repository/LibrarianRegistrationRepo.java =====
+package ru.zyryanova.biblioteka_boot.Repository;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+import ru.zyryanova.biblioteka_boot.Model.Librarian;
+
+@Repository
+public interface LibrarianRegistrationRepo extends JpaRepository<Librarian, Integer> {
+    Librarian findByUsername(String username);
+}
+
+===== ./src/main/java/ru/zyryanova/biblioteka_boot/Repository/BookRepo.java =====
+package ru.zyryanova.biblioteka_boot.Repository;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+import ru.zyryanova.biblioteka_boot.Model.Book;
+
+import java.util.List;
+
+@Repository
+public interface BookRepo extends JpaRepository<Book, Integer> {
+    List<Book> findByBookNameStartingWith(String prefix);
+    @Modifying
+    @Query("UPDATE Book b SET b.owner.id = :personId WHERE b.bookId = :bookId AND b.owner IS NULL")
+    int assignBookToPerson(@Param("bookId") int bookId, @Param("personId") int personId);
+    @Modifying
+    @Query("UPDATE Book b SET b.owner = NULL WHERE b.bookId = :bookId AND b.owner IS NOT NULL")
+    int freeBook(@Param("bookId") int bookId);
+    List<Book> findByOwnerPersonId(int id);
+
+}
+
+===== ./src/main/java/ru/zyryanova/biblioteka_boot/Security/SecurityConfig.java =====
+package ru.zyryanova.biblioteka_boot.Security;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+import ru.zyryanova.biblioteka_boot.Service.LibrarianDetailsService;
+
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig{
+    private final LibrarianDetailsService librarianDetailsService;
+
+    @Autowired
+    public SecurityConfig(LibrarianDetailsService librarianDetailsService) {
+        this.librarianDetailsService = librarianDetailsService;
+    }
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        http
+                .authorizeHttpRequests(authz -> authz
+                        // Сначала самые специфичные правила
+                        .requestMatchers("/registration").permitAll()
+                        .requestMatchers("/login").permitAll()
+                        .requestMatchers("/login_send").permitAll()
+                        // Потом общее правило
+                        .anyRequest().authenticated()
+                )
+                .formLogin(form -> form
+                        .loginPage("/login")
+                        .loginProcessingUrl("/login_send")
+                        .defaultSuccessUrl("/books", true)
+                        .failureUrl("/login?error=true"))
+                .logout(logout -> logout
+                        .logoutUrl("/logout")
+                        .logoutSuccessUrl("/login?logout=true"))
+                .userDetailsService(librarianDetailsService);
+        return http.build();
+
+    }
+    @Bean
+    public PasswordEncoder passwordEncoder(){
+        return new BCryptPasswordEncoder();
+    }
+}
+
+===== ./src/main/java/ru/zyryanova/biblioteka_boot/Controller/BooksController.java =====
+package ru.zyryanova.biblioteka_boot.Controller;
+
+import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
+import org.springframework.web.bind.annotation.*;
+import ru.zyryanova.biblioteka_boot.Model.Book;
+import ru.zyryanova.biblioteka_boot.Service.BookService;
+import ru.zyryanova.biblioteka_boot.Service.PersonService;
+
+
+@Controller
+@RequestMapping("/books")
+public class BooksController {
+    PersonService personService;
+    BookService bookService;
+
+    @Autowired
+    public BooksController(PersonService personService, BookService bookService) {
+        this.personService = personService;
+        this.bookService = bookService;
+    }
+    @GetMapping()
+    public String books(Model model,
+                        @RequestParam (name = "page", required = false) Integer page,
+                        @RequestParam (name = "book_per_page",required = false) Integer book_per_page,
+                        @RequestParam(name = "sort_by_year", required = false) Boolean bool){
+        if(page==null || book_per_page==null){
+            if(bool!=null && bool){
+                model.addAttribute("books", bookService.indexWithSort());
+            }else{
+                model.addAttribute("books", bookService.books());
+            }
+        }else{
+            if(bool!=null && bool){
+                model.addAttribute("books", bookService.indexWithPageWithSort(page, book_per_page));
+            }else{
+                model.addAttribute("books", bookService.indexWithPage(page, book_per_page));
+            }
+        }
+        return "books/list";
+    }
+    @GetMapping("/search")
+    public String search(){
+        return "books/search";
+    }
+    @GetMapping("/new")
+    public String create(@ModelAttribute("book") Book book){
+        return "books/new";
+    }
+    @GetMapping("/{id}")
+    public String show(Model model,
+                       @PathVariable("id") int id){
+        model.addAttribute("book", bookService.show(id));
+        model.addAttribute("person", bookService.personOfBook(id));
+        model.addAttribute("people",personService.people());
+        return "books/show";
+    }
+    @GetMapping("/{id}/edit")
+    public String edit(Model model,@PathVariable("id") int id){
+        model.addAttribute("book", bookService.show(id));
+        return "books/edit";
+    }
+    @PostMapping("/search")
+    public String found(Model model, @RequestParam("bookName") String bookName){
+        model.addAttribute("books",bookService.find(bookName));
+        return "books/found";
+    }
+    @PostMapping()
+    public String save(@ModelAttribute("book") @Valid Book book, BindingResult bindingResult){
+        if(bindingResult.hasErrors()){
+            return "books/new";
+        }
+        bookService.save(book);
+        return "redirect:/books";
+    }
+    @PatchMapping("/{id}")
+    public String edit(@ModelAttribute("book") @Valid Book book,
+                       BindingResult bindingResult,
+                       @PathVariable("id") int id){
+        if(bindingResult.hasErrors()){
+            return "books/edit";
+        }
+        bookService.update(id, book);
+        return "redirect:/books";
+    }
+    @PatchMapping("/{id}/addPerson")
+    public String addPerson(@RequestParam("person_id") int person_id,
+                       @PathVariable("id") int idOfTheBook,
+                            Book bookToUpdate){
+        bookService.addPerson(idOfTheBook, person_id);
+        return "redirect:/books";
+    }
+    @DeleteMapping("/{id}")
+    public String delete(@PathVariable("id" )int id){
+        bookService.delete(id);
+        return "redirect:/books";
+    }
+}
+
+===== ./src/main/java/ru/zyryanova/biblioteka_boot/Controller/AuthController.java =====
+package ru.zyryanova.biblioteka_boot.Controller;
+
+import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import ru.zyryanova.biblioteka_boot.Model.Librarian;
+import ru.zyryanova.biblioteka_boot.Service.RegistrationService;
+
+@Controller
+public class AuthController {
+    private final RegistrationService registrationService;
+
+    @Autowired
+    public AuthController(RegistrationService registrationService) {
+        this.registrationService = registrationService;
+    }
+    @GetMapping("/registration")
+    public String registration(@ModelAttribute("librarian") Librarian librarian){
+        return "registration";
+    }
+    @GetMapping("/login")
+    public String loginPage(@RequestParam(value = "error", required = false) boolean error,
+                            @RequestParam(value = "logout", required = false) boolean logout,
+                            Model model) {
+        if(error){
+            model.addAttribute("errorMessage"," Неверный логин или пароль");
+        }
+        if(logout){
+            model.addAttribute("logoutMessage","Вы успешно вышли из системы");
+        }
+        return "login";
+    }
+    @PostMapping("/registration")
+    public String createPerson(@ModelAttribute("librarian") @Valid Librarian librarian, BindingResult bindingResult){
+        if(bindingResult.hasErrors()){
+            return "/registration";
+        }
+        registrationService.register(librarian);
+        return"redirect:/books";
+    }
+
+}
+
+===== ./src/main/java/ru/zyryanova/biblioteka_boot/Controller/PeopleController.java =====
+package ru.zyryanova.biblioteka_boot.Controller;
+
+import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
+import org.springframework.web.bind.annotation.*;
+import ru.zyryanova.biblioteka_boot.Model.Person;
+import ru.zyryanova.biblioteka_boot.Service.BookService;
+import ru.zyryanova.biblioteka_boot.Service.PersonService;
+
+
+@Controller
+@RequestMapping("/people")
+public class PeopleController {
+    PersonService personService;
+    BookService bookService;
+
+    @Autowired
+    public PeopleController(PersonService personService, BookService bookService) {
+        this.personService = personService;
+        this.bookService = bookService;
+    }
+
+    @GetMapping()
+    public String people(Model model){
+        model.addAttribute("person",personService.people());
+        return "people/list";
+    }
+    @GetMapping("/new")
+    public String create(@ModelAttribute("person") Person person){
+        return "people/new";
+    }
+    @GetMapping("/{id}")
+    public String show(Model model,
+                       @PathVariable("id") int id){
+        model.addAttribute("person",personService.show(id));
+        model.addAttribute("books", personService.booksOfPerson(id));
+        return "people/show";
+    }
+    @GetMapping("/{id}/edit")
+    public String edit(Model model,@PathVariable("id") int id){
+        model.addAttribute("person",personService.show(id));
+        return "people/edit";
+    }
+    @PostMapping()
+    public String save(@ModelAttribute("person") @Valid Person person, BindingResult bindingResult){
+        if (bindingResult.hasErrors()) {
+            return "people/new";
+        }
+        personService.save(person);
+        return "redirect:/people";
+    }
+    @PatchMapping("/{id}")
+    public String edit(@ModelAttribute("person") @Valid Person person,
+                       BindingResult bindingResult,
+                       @PathVariable("id") int id){
+        if (bindingResult.hasErrors()) {
+            return "people/edit";
+        }
+        personService.update(id, person);
+        return "redirect:/people";
+    }
+    @PatchMapping("/{book_id}/free")
+    public String free(@ModelAttribute("person") Person person,
+                       @PathVariable("book_id") int id){
+        bookService.free(id);
+        return "redirect:/books";
+    }
+    @DeleteMapping("/{id}")
+    public String delete(@PathVariable("id" )int id){
+        personService.delete(id);
+        return "redirect:/people";
+    }
+
+
+}
+
+===== ./src/main/java/ru/zyryanova/biblioteka_boot/Model/Person.java =====
+package ru.zyryanova.biblioteka_boot.Model;
+
+import jakarta.persistence.*;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotEmpty;
+import java.util.List;
+
+@Entity
+@Table(name = "person")
+public class Person {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private int personId;
+
+    @NotEmpty(message = "not empty")
+    @Column(name = "person_fio")
+    private String personFio;
+
+    @Min(value = 0, message = "min value is 0")
+    @Column(name = "person_year")
+    private int personYear;
+
+    @OneToMany(mappedBy = "owner")  // ← "owner" - это поле в классе Book
+    private List<Book> books;
+
+    @Version
+    private Integer version;
+
+    public Integer getVersion() {
+        return version;
+    }
+
+    public void setVersion(Integer version) {
+        this.version = version;
+    }
+
+    public int getPersonId() {
+        return personId;
+    }
+
+    public void setPersonId(int personId) {
+        this.personId = personId;
+    }
+
+    public String getPersonFio() {
+        return personFio;
+    }
+
+    public void setPersonFio(String personFio) {
+        this.personFio = personFio;
+    }
+
+    public int getPersonYear() {
+        return personYear;
+    }
+
+    public void setPersonYear(int personYear) {
+        this.personYear = personYear;
+    }
+
+    public List<Book> getBooks() {
+        return books;
+    }
+
+    public void setBooks(List<Book> books) {
+        this.books = books;
+    }
+
+}
+===== ./src/main/java/ru/zyryanova/biblioteka_boot/Model/Book.java =====
+package ru.zyryanova.biblioteka_boot.Model;
+
+import jakarta.persistence.*;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotEmpty;
+import org.hibernate.annotations.Cascade;
+
+@Entity
+@Table(name = "book")
+public class Book {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "book_id")
+    private int bookId;
+
+    @NotEmpty(message = "Поле должно быть заполнено")
+    @Column(name = "book_name")
+    private String bookName;
+
+    @NotEmpty(message = "Поле должно быть заполнено")
+    @Column(name = "book_author")
+    private String bookAuthor;
+
+    @Column(name = "book_year")
+    @Min(value = 0)
+    private int bookYear;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "person_id", referencedColumnName = "personId")
+    private Person owner;
+
+    @Version
+    private Integer version;
+
+    public Integer getVersion() {
+        return version;
+    }
+
+    public void setVersion(Integer version) {
+        this.version = version;
+    }
+
+    public int getBookId() {
+        return bookId;
+    }
+
+    public void setBookId(int bookId) {
+        this.bookId = bookId;
+    }
+
+    public String getBookName() {
+        return bookName;
+    }
+
+    public void setBookName(String bookName) {
+        this.bookName = bookName;
+    }
+
+    public String getBookAuthor() {
+        return bookAuthor;
+    }
+
+    public void setBookAuthor(String bookAuthor) {
+        this.bookAuthor = bookAuthor;
+    }
+
+    public int getBookYear() {
+        return bookYear;
+    }
+
+    public void setBookYear(int bookYear) {
+        this.bookYear = bookYear;
+    }
+
+    public Person getOwner() {
+        return owner;
+    }
+
+    public void setOwner(Person owner) {
+        this.owner = owner;
+    }
+}
+
+===== ./src/main/java/ru/zyryanova/biblioteka_boot/Model/LibrarianDetails.java =====
+package ru.zyryanova.biblioteka_boot.Model;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+
+import java.util.Collection;
+import java.util.List;
+
+public class LibrarianDetails implements UserDetails{
+
+
+    private final Librarian librarian;
+
+
+    @Autowired
+    public LibrarianDetails(Librarian librarian) {
+        this.librarian = librarian;
+    }
+
+    @Override
+    public String getUsername() {
+        return librarian.getUsername();
+    }
+
+    @Override
+    public String getPassword() {
+        return librarian.getPassword();
+    }
+
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return List.of();
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return true;
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isAccountNonLocked() {
+        return true;
+    }
+
+    @Override
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+}
+
+===== ./src/main/java/ru/zyryanova/biblioteka_boot/Model/Librarian.java =====
+package ru.zyryanova.biblioteka_boot.Model;
+
+import jakarta.persistence.*;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotEmpty;
+
+@Entity
+@Table(name = "librarian")
+public class Librarian {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private int id;
+
+    @NotEmpty(message = "Поле не должно быть пустым")
+    @Column(name = "person_fio")
+    private String personFio;
+
+    @Column(name = "person_year")
+    @Min(value = 0)
+    private int personYear;
+
+    @NotEmpty(message = "Поле не должно быть пустым")
+    @Column(name = "username")
+    private String username;
+
+    @NotEmpty(message = "Поле не должно быть пустым")
+    @Column(name = "password")
+    private String password;
+
+    public Librarian() {}
+
+    public int getId() { return id; }
+    public void setId(int id) { this.id = id; }
+
+    public String getPersonFio() { return personFio; }
+    public void setPersonFio(String personFio) { this.personFio = personFio; }
+
+    public int getPersonYear() { return personYear; }
+    public void setPersonYear(int personYear) { this.personYear = personYear; }
+
+    public String getUsername() { return username; }
+    public void setUsername(String username) { this.username = username; }
+
+    public String getPassword() { return password; }
+    public void setPassword(String password) { this.password = password; }
+}
+
+===== ./src/main/java/ru/zyryanova/biblioteka_boot/Service/RegistrationService.java =====
+package ru.zyryanova.biblioteka_boot.Service;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import ru.zyryanova.biblioteka_boot.Model.Librarian;
+import ru.zyryanova.biblioteka_boot.Repository.LibrarianRegistrationRepo;
+
+
+@Service
+public class RegistrationService {
+    private final LibrarianRegistrationRepo librarianRegistrationRepo;
+    private final PasswordEncoder passwordEncoder; // ← ДОБАВЬТЕ ЭТО
+
+    @Autowired
+    public RegistrationService(LibrarianRegistrationRepo librarianRegistrationRepo,
+                               PasswordEncoder passwordEncoder) {
+        this.librarianRegistrationRepo = librarianRegistrationRepo;
+        this.passwordEncoder = passwordEncoder;
+    }
+
+    public void register(Librarian librarian) {
+        librarian.setPassword(passwordEncoder.encode(librarian.getPassword()));
+        librarianRegistrationRepo.save(librarian);
+    }
+}
+
+===== ./src/main/java/ru/zyryanova/biblioteka_boot/Service/PersonService.java =====
+package ru.zyryanova.biblioteka_boot.Service;
+
+import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.stereotype.Service;
+import ru.zyryanova.biblioteka_boot.Exception.PersonOptimisticLockException;
+import ru.zyryanova.biblioteka_boot.Exception.ResourceNotFoundException;
+import ru.zyryanova.biblioteka_boot.Model.Book;
+import ru.zyryanova.biblioteka_boot.Model.Person;
+import ru.zyryanova.biblioteka_boot.Repository.BookRepo;
+import ru.zyryanova.biblioteka_boot.Repository.PersonRepo;
+
+
+import java.util.*;
+
+@Service
+public class PersonService {
+    private PersonRepo personRepository;
+    private BookRepo bookRepository;
+
+    public PersonService(PersonRepo personRepository, BookRepo bookRepository) {
+        this.personRepository = personRepository;
+        this.bookRepository = bookRepository;
+    }
+    public List<Person> people(){
+        return personRepository.findAll();
+    }
+    public void save(Person person){
+        personRepository.save(person);
+    }
+    public Person show(int id){
+        return findPersonOrThrow(id);
+    }
+    public void update(int id, Person person){
+        Person existing = findPersonOrThrow(id);
+        existing.setPersonId(id);
+        existing.setPersonFio(person.getPersonFio());
+        existing.setPersonYear(person.getPersonYear());
+        existing.setVersion(person.getVersion());
+        try{
+            personRepository.save(existing);
+        }catch (OptimisticLockingFailureException ex){
+            throw new PersonOptimisticLockException("Данные человека были изменены другим пользователем. " +
+                    "Пожалуйста, обновите страницу и попробуйте снова.",
+                    ex);
+        }
+
+    }
+    public void delete(int id){
+        findPersonOrThrow(id);
+        personRepository.deleteById(id);
+    }
+    public List<Book> booksOfPerson(int id){
+        return bookRepository.findByOwnerPersonId(id);
+    }
+    private Person findPersonOrThrow(int id){
+        return personRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Читатель с id " + id + " не найден"));
+    }
+}
+
+===== ./src/main/java/ru/zyryanova/biblioteka_boot/Service/LibrarianDetailsService.java =====
+package ru.zyryanova.biblioteka_boot.Service;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.stereotype.Service;
+import ru.zyryanova.biblioteka_boot.Model.Librarian;
+import ru.zyryanova.biblioteka_boot.Model.LibrarianDetails;
+import ru.zyryanova.biblioteka_boot.Repository.LibrarianRegistrationRepo;
+
+@Service
+public class LibrarianDetailsService implements UserDetailsService {
+    private final LibrarianRegistrationRepo librarianRegistrationRepo;
+
+    @Autowired
+    public LibrarianDetailsService(LibrarianRegistrationRepo librarianRegistrationRepo) {
+        this.librarianRegistrationRepo = librarianRegistrationRepo;
+    }
+
+    @Override
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        Librarian librarian = librarianRegistrationRepo.findByUsername(username);
+        if(librarian==null){
+            throw new UsernameNotFoundException("Пользователь не найден");
+        }
+        return new LibrarianDetails(librarian);
+    }
+}
+
+===== ./src/main/java/ru/zyryanova/biblioteka_boot/Service/BookService.java =====
+package ru.zyryanova.biblioteka_boot.Service;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import ru.zyryanova.biblioteka_boot.Exception.BookOptimisticLockException;
+import ru.zyryanova.biblioteka_boot.Exception.ResourceNotFoundException;
+import ru.zyryanova.biblioteka_boot.Model.Book;
+import ru.zyryanova.biblioteka_boot.Model.Person;
+import ru.zyryanova.biblioteka_boot.Repository.BookRepo;
+import ru.zyryanova.biblioteka_boot.Repository.PersonRepo;
+import java.util.List;
+
+
+@Service
+@Transactional(readOnly = true)
+public class  BookService{
+    private final BookRepo bookRepository;
+    private final PersonRepo personRepo;
+    @Autowired
+    public BookService(BookRepo bookRepository, PersonRepo personRepo) {
+        this.bookRepository = bookRepository;
+        this.personRepo = personRepo;
+    }
+    public List<Book> books(){
+        return bookRepository.findAll();
+    }
+    public List<Book> indexWithSort(){
+        return bookRepository.findAll(Sort.by("bookYear"));
+    }
+    public List<Book> indexWithPage(int page, int book_per_page){
+        return bookRepository.findAll(PageRequest.of(page,book_per_page)).getContent();
+    }
+    public List<Book> indexWithPageWithSort(int page, int book_per_page){
+        return bookRepository.findAll(PageRequest.of(page,book_per_page,Sort.by("bookYear"))).getContent();
+    }
+    public List<Book> find(String text){
+        return bookRepository.findByBookNameStartingWith(text);
+    }
+    @Transactional
+    public void save(Book book){
+        bookRepository.save(book);
+    }
+    public Book show(int id){
+        return findOrThrow(id);
+    }
+    @Transactional
+    public void update(int id,Book book){
+        Book existing = findOrThrow(id);
+        existing.setBookId(id);
+        existing.setBookName(book.getBookName());
+        existing.setBookAuthor(book.getBookAuthor());
+        existing.setBookYear(book.getBookYear());
+        existing.setOwner(book.getOwner());
+        existing.setVersion(book.getVersion());
+        try{
+            bookRepository.save(existing);
+        }catch (OptimisticLockingFailureException ex){
+            throw new BookOptimisticLockException("Данные книги были изменены другим пользователем. " +
+                    "Пожалуйста, обновите страницу и попробуйте снова.",ex);
+        }
+    }
+    @Transactional
+    public void delete(int id){
+        Book book = findOrThrow(id);
+        bookRepository.delete(book);
+    }
+    public Person personOfBook(int id) {
+        Book book = findOrThrow(id);
+        return book != null ? book.getOwner() : null;
+    }
+    @Transactional
+    public void addPerson(int idOfTheBook, int idOfThePerson){
+        int updatedRows = bookRepository.assignBookToPerson(idOfTheBook, idOfThePerson);
+        if (updatedRows == 0) {
+            Book book = findOrThrow(idOfTheBook);
+            throw new IllegalStateException("Книга уже выдана другому человеку");
+        }
+    }
+    @Transactional
+    public void free(int id){
+        int updatedRows = bookRepository.freeBook(id);
+        if(updatedRows==0){
+            Book book = findOrThrow(id);
+            throw  new IllegalStateException("У книги нет пользователя");
+        }
+    }
+    private Book findOrThrow(int id){
+        return bookRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Книга с id " + id + " не найдена"));
+    }
+}
+
+
+===== ./src/main/java/ru/zyryanova/biblioteka_boot/BibliotekaBootApplication.java =====
+package ru.zyryanova.biblioteka_boot;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class BibliotekaBootApplication {
+	public static void main(String[] args) {
+		SpringApplication.run(BibliotekaBootApplication.class, args);
+	}
+
+}
+
+===== ./src/main/java/ru/zyryanova/biblioteka_boot/Exception/ResourceNotFoundException.java =====
+package ru.zyryanova.biblioteka_boot.Exception;
+
+public class ResourceNotFoundException extends RuntimeException{
+    public ResourceNotFoundException(String message) {
+        super(message);
+    }
+
+    public ResourceNotFoundException() {
+        super("Ресурс не найден");
+    }
+}
+
+===== ./src/main/java/ru/zyryanova/biblioteka_boot/Exception/BookOptimisticLockException.java =====
+package ru.zyryanova.biblioteka_boot.Exception;
+
+public class BookOptimisticLockException extends RuntimeException{
+    public BookOptimisticLockException(String message, Throwable cause) {
+        super(message, cause);
+    }
+}
+
+===== ./src/main/java/ru/zyryanova/biblioteka_boot/Exception/GlobalExceptionHandler.java =====
+package ru.zyryanova.biblioteka_boot.Exception;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.ControllerAdvice;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+
+@ControllerAdvice
+public class GlobalExceptionHandler {
+    private final Logger logger = LoggerFactory.getLogger(this.getClass());
+
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public String handleResourceNotFoundException(ResourceNotFoundException ex, Model model){
+        model.addAttribute("message", ex.getMessage());
+        logger.warn("Resource not found", ex.getMessage());
+        return "errors/404";
+    }
+    @ExceptionHandler(IllegalStateException.class)
+    public String handleIllegalStateException(IllegalStateException ex, Model model){
+        model.addAttribute("message", ex.getMessage());
+        logger.warn("Illegal state", ex.getMessage());
+        return "errors/400";
+    }
+    @ExceptionHandler(PersonOptimisticLockException.class)
+    public String handlePersonOptimisticLockException(PersonOptimisticLockException ex, Model model){
+        model.addAttribute("message", ex.getMessage());
+        logger.warn("Person optimistic lock conflict", ex.getMessage());
+        return "errors/409";
+    }
+    @ExceptionHandler(BookOptimisticLockException.class)
+    public String handleOptimisticLockException(BookOptimisticLockException ex, Model model) {
+        model.addAttribute("message", ex.getMessage());
+        logger.warn("Book optimistic lock conflict", ex.getMessage());
+        return "errors/409";
+    }
+    @ExceptionHandler(Exception.class)
+    public String handleException(Exception ex, Model model){
+        model.addAttribute("message", "Произошла внутренняя ошибка сервера");
+        logger.error("Internal server error", ex.getMessage());
+        return "errors/500";
+    }
+
+
+}
+
+===== ./src/main/java/ru/zyryanova/biblioteka_boot/Exception/PersonOptimisticLockException.java =====
+package ru.zyryanova.biblioteka_boot.Exception;
+
+public class PersonOptimisticLockException extends RuntimeException{
+    public PersonOptimisticLockException(String message, Throwable cause) {
+        super(message, cause);
+    }
+}
+

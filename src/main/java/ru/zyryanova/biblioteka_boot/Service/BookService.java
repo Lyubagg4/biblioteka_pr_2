@@ -49,10 +49,15 @@ public class  BookService{
     }
     @Transactional
     public void update(int id,Book book){
-        findOrThrow(id);
-        book.setBookId(id);
+        Book existing = findOrThrow(id);
+        existing.setBookId(id);
+        existing.setBookName(book.getBookName());
+        existing.setBookAuthor(book.getBookAuthor());
+        existing.setBookYear(book.getBookYear());
+        existing.setOwner(book.getOwner());
+        existing.setVersion(book.getVersion());
         try{
-            bookRepository.save(book);
+            bookRepository.save(existing);
         }catch (OptimisticLockingFailureException ex){
             throw new BookOptimisticLockException("Данные книги были изменены другим пользователем. " +
                     "Пожалуйста, обновите страницу и попробуйте снова.",ex);
@@ -79,7 +84,7 @@ public class  BookService{
     public void free(int id){
         int updatedRows = bookRepository.freeBook(id);
         if(updatedRows==0){
-            Book book = findOrThrow(id);
+            Book book = findOrThrow(id); // TODO лишнее наверное надо заменить на лок по строкам
             throw  new IllegalStateException("У книги нет пользователя");
         }
     }
